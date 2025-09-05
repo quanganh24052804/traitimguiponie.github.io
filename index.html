@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Heart Fountain with Text</title>
+    <style>
+      body {
+        margin: 0;
+        background: black;
+        overflow: hidden;
+      }
+      canvas {
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="canvas"></canvas>
+    <script>
+      const canvas = document.getElementById("canvas");
+      const ctx = canvas.getContext("2d");
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+
+      const W = canvas.width;
+      const H = canvas.height;
+      const particles = []; // trái tim
+      const fountainParticles = []; // hạt phun
+      const groundParticles = []; // bãi hứng cố định
+
+      // Công thức trái tim 2D
+      function heart2D(u) {
+        const x = 16 * Math.pow(Math.sin(u), 3);
+        const y =
+          13 * Math.cos(u) -
+          5 * Math.cos(2 * u) -
+          2 * Math.cos(3 * u) -
+          Math.cos(4 * u);
+        return { x, y: -y };
+      }
+
+      // Hạt trái tim
+      class Particle {
+        constructor(x, y, z) {
+          const scale = 15;
+          this.x = x * scale;
+          this.y = y * scale;
+          this.z = z * scale;
+          this.size = 1.3;
+          this.color = "rgba(255,182,193,0.85)";
+        }
+        rotateY(theta) {
+          const cos = Math.cos(theta),
+            sin = Math.sin(theta);
+          const x = this.x * cos - this.z * sin;
+          const z = this.x * sin + this.z * cos;
+          this.x = x;
+          this.z = z;
+        }
+        project() {
+          const scale = 600 / (600 + this.z);
+          return { x: this.x * scale + W / 2, y: this.y * scale + H / 2 };
+        }
+        draw() {
+          const pos = this.project();
+          ctx.beginPath();
+          ctx.arc(pos.x, pos.y, this.size, 0, Math.PI * 2);
+          ctx.fillStyle = this.color;
+          ctx.fill();
+        }
+      }
+
+      // Hạt phun từ dưới
+      class FountainParticle {
+        constructor() {
+          this.x = W / 2 + (Math.random() - 0.5) * 400;
+          this.y = H - 40;
+          this.z = (Math.random() - 0.5) * 200;
+          this.vx = (Math.random() - 0.5) * 1.2;
+          this.vy = -2 - Math.random() * 1.5;
+          this.vz = (Math.random() - 0.5) * 1.2;
+          this.size = 1.3;
+          this.color = "rgba(255,182,193,0.85)";
+        }
+        update() {
+          this.x += this.vx;
+          this.y += this.vy;
+          this.z += this.vz;
+          this.vy += 0.015;
+        }
+        project() {
+          const scale = 600 / (600 + this.z);
+          return { x: this.x * scale, y: this.y * scale };
+        }
+        draw() {
+          const pos = this.project();
+          ctx.beginPath();
+          ctx.arc(pos.x, pos.y, this.size, 0, Math.PI * 2);
+          ctx.fillStyle = this.color;
+          ctx.fill();
+        }
+        isOnGround() {
+          return this.y >= H - 40;
+        }
+      }
+
+      // Hạt bãi hứng cố định
+      class GroundParticle {
+        constructor(x, z) {
+          this.x = x;
+          this.y = H - 40;
+          this.z = z;
+          this.size = 1.3;
+          this.color = "rgba(255,182,193,0.5)";
+        }
+        project() {
+          const scale = 600 / (600 + this.z);
+          return { x: this.x * scale, y: this.y * scale };
+        }
+        draw() {
+          const pos = this.project();
+          ctx.beginPath();
+          ctx.arc(pos.x, pos.y, this.size, 0, Math.PI * 2);
+          ctx.fillStyle = this.color;
+          ctx.fill();
+        }
+      }
+
+      // Sinh trái tim 3D
+      function initHeart() {
+        for (let u = 0; u < Math.PI * 2; u += 0.08) {
+          const { x, y } = heart2D(u);
+          for (let r = 0.2; r < 1; r += 0.2) {
+            const px = x * r,
+              py = y * r;
+            for (let v = 0; v < Math.PI * 2; v += 0.2) {
+              const newX = px * Math.cos(v);
+              const newY = py;
+              const newZ = px * Math.sin(v);
+              particles.push(new Particle(newX, newY, newZ));
+            }
+          }
+        }
+      }
+
+      // Sinh bãi hứng hạt
+      function initGround() {
+        for (let gx = -300; gx <= 600; gx += 8) {
+          for (let gz = -200; gz <= 250; gz += 8) {
+            groundParticles.push(new GroundParticle(W / 2 + gx, gz));
+          }
+        }
+      }
+
+      function animate() {
+        ctx.fillStyle = "rgba(0,0,0,0.25)";
+        ctx.fillRect(0, 0, W, H);
+
+        // Vẽ trái tim
+        particles.forEach((p) => {
+          p.rotateY(0.002);
+          p.draw();
+        });
+
+        // Vẽ chữ ngay giữa tim
+        ctx.fillStyle = "rgba(255,182,193,0.95)";
+        ctx.font = "bold 48px Arial";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("Poniee", W / 2, H / 2);
+
+        // Vẽ bãi hứng
+        groundParticles.forEach((gp) => gp.draw());
+
+        // Sinh thêm hạt phun
+        for (let i = 0; i < 8; i++) {
+          fountainParticles.push(new FountainParticle());
+        }
+
+        // Update + vẽ hạt phun
+        for (let i = fountainParticles.length - 1; i >= 0; i--) {
+          const fp = fountainParticles[i];
+          fp.update();
+          if (fp.isOnGround()) {
+            fountainParticles.splice(i, 1);
+          } else {
+            fp.draw();
+          }
+        }
+
+        requestAnimationFrame(animate);
+      }
+
+      initHeart();
+      initGround();
+      animate();
+    </script>
+  </body>
+</html>
